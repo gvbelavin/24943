@@ -26,7 +26,7 @@ int main(int argc, char const *argv[])
 {
     printf("UID: %d, EUID: %d\n", getuid(), geteuid());
     open_test();
-    setuid(0);
+    setuid(getuid());
     printf("UID: %d, EUID: %d\n", getuid(), geteuid());
     open_test();
     
