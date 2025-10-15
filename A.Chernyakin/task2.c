@@ -1,23 +1,30 @@
 #include <stdio.h>
 #include <time.h>
-#include <stdlib.h>
 
-extern char *tzname[];
-
-int main() {
+int main(void) {
     time_t now;
-    struct tm *sp;
+    struct tm tm_pst;
 
-    putenv("TZ=America/Los_Angeles");
+    /* Получаем текущее календарное время (в секундах с epoch, обычно UTC) */
+    time(&now);
 
-    now = time(NULL);
-    printf("%s", ctime(&now));
+    /* Отнимаем 8 часов (8 * 3600 секунд) для получения PST (UTC-8) */
+    now -= 8 * 3600;
 
-    sp = localtime(&now);
-    printf("%d/%d/%02d %d:%02d %s\n",
-           sp->tm_mon + 1, sp->tm_mday,
-           sp->tm_year - 100, sp->tm_hour,
-           sp->tm_min, tzname[sp->tm_isdst]);
+    /* Преобразуем в структурированное время по UTC — т.е. "фиксированное" время PST */
+    /* Используем gmtime, потому что мы уже скорректировали значение вручную */
+    if (gmtime_r(&now, &tm_pst) == NULL) {
+        perror("gmtime_r");
+        return 1;
+    }
+
+    printf("Текущее (зимнее) время в Калифорнии: %04d-%02d-%02d %02d:%02d:%02d PST (UTC-8)\n",
+           tm_pst.tm_year + 1900,
+           tm_pst.tm_mon + 1,
+           tm_pst.tm_mday,
+           tm_pst.tm_hour,
+           tm_pst.tm_min,
+           tm_pst.tm_sec);
 
     return 0;
 }
