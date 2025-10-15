@@ -11,6 +11,7 @@ struct rlimit rlimit_io;
 char buffer[128];
 extern char **environ;
 char **envp;
+int ret;
 
 int main(int argc, char *argv[])
 {
@@ -27,7 +28,7 @@ int main(int argc, char *argv[])
                 getegid());
             break;
         case 's':
-            int ret = setpgid(0, 0);
+            ret = setpgid(0, 0);
             if (ret) printf("%d\n", errno);
             break;
         case 'p':
