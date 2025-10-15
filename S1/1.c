@@ -9,6 +9,7 @@
 int opt;
 struct rlimit rlimit_io;
 char buffer[128];
+extern char **environ;
 
 int main(int argc, char *argv[])
 {
@@ -58,7 +59,7 @@ int main(int argc, char *argv[])
             printf("%s\n", getcwd(buffer, sizeof(buffer)));
             break;
         case 'v':
-            char **env = __environ;
+            char **env = environ;
             while (*env)
             {
                 printf("%s\n", *env);
