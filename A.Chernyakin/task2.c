@@ -18,7 +18,7 @@ int main(void) {
         return 1;
     }
 
-    printf("Текущее (зимнее) время в Калифорнии: %04d-%02d-%02d %02d:%02d:%02d PST (UTC-8)\n",
+    printf("%04d-%02d-%02d %02d:%02d:%02d PST (UTC-8)\n",
            tm_pst.tm_year + 1900,
            tm_pst.tm_mon + 1,
            tm_pst.tm_mday,
