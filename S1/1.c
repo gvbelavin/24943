@@ -12,7 +12,6 @@ char buffer[128];
 
 int main(int argc, char *argv[])
 {
-
     while ((opt = getopt(argc, argv, "ispuU:cC:dvV:h")) != -1)
     {
         switch (opt)

@@ -4,16 +4,25 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <signal.h>
 
+void termination_handler(int signum);
+
+int fd;
 long offsets[256];
 int lnlens[256];
 int lines = 0;
 int buf;
 
+struct sigaction alarm_act;
+
 int main(int argc, char *argv[])
 {
-    int fd = open(argv[1], O_RDONLY);
+    fd = open(argv[1], O_RDONLY);
     offsets[0] = 0;
+    alarm_act.sa_handler = termination_handler;
+
+    // alarm_act.__sigaction_handler.sa_handler = termination_handler;
 
     int pos = 0;
     int lnlen = 0;
@@ -39,6 +48,7 @@ int main(int argc, char *argv[])
     
     int input;
     printf("Enter the line number [0-%d]: ", lines-1);
+    sigaction(SIGALRM, &alarm_act, NULL);
     unsigned int x = alarm(5);
     scanf("%d", &input);
 
@@ -62,4 +72,17 @@ int main(int argc, char *argv[])
     printf("%s\n", buff);
     
     return 0;
+}
+
+void termination_handler(int signum)
+{
+    if (signum == SIGALRM)
+    {
+        putc('\n', stdout);
+        lseek(fd, 0, SEEK_SET);
+        while (read(fd, &buf, 1) > 0)
+        {
+            putc(buf, stdout);
+        }
+    }
 }
