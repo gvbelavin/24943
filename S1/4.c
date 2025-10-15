@@ -70,7 +70,7 @@ int main(int argc, char const *argv[])
     StrList list = {NULL, NULL};
     while (1)
     {
-        scanf("%s", buffer);
+        fgets(buffer, BUFFER_SIZE, stdin);
         if (buffer[0] == '.') break;
         int length = strlen(buffer);
         char *input = malloc(length+1);
