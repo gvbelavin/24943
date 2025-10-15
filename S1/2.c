@@ -10,7 +10,7 @@ int main(int argc, char const *argv[])
     time_t now;
     struct tm *sp;
 
-    setenv("TZ", "America/Los_Angeles", 0);
+    setenv("TZ", "America/Los_Angeles", 1);
     tzset();
     
     (void) time( &now );
