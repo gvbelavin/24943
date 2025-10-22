@@ -1,21 +1,24 @@
 #include <sys/types.h>
+#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 
-enum { MAX_LINES = 500, BUFSZ = 256 };
+#define MAX_LINES 500
 
 int main(int argc, char **argv) {
+    int fd, line_count = 0;
     off_t file_size;
     char *file_data;
     char *line_start[MAX_LINES];  // Указатели на начало строк
-    int line_len[MAX_LINES];      // Длины строк
-    int fd, i = 0, cur_len = 0, ask;
-    char input[BUFSZ];
+    int line_length[MAX_LINES];   // Длины строк
+    
+    char input[256];
+    int line_no;
 
+    // Проверка аргументов
     if (argc < 2) { 
         fprintf(stderr, "Usage: %s <file>\n", argv[0]); 
         return 1; 
@@ -28,7 +31,7 @@ int main(int argc, char **argv) {
         return 1; 
     }
 
-    // Получение размера файла
+    // Определение размера файла
     file_size = lseek(fd, 0, SEEK_END);
     if (file_size == (off_t)-1) {
         perror("lseek");
@@ -44,32 +47,60 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Построение таблицы строк с использованием mmap
+    // Построение таблицы строк
     line_start[0] = file_data;  // Первая строка начинается с начала файла
-    
-    for (off_t pos = 0; pos < file_size && i < MAX_LINES; pos++) {
-        if (file_data[pos] == '\n') {
+    line_length[0] = 0;
+    line_count = 1;
+
+    for (off_t i = 0; i < file_size && line_count < MAX_LINES; i++) {
+        if (file_data[i] == '\n') {
             // Сохраняем длину текущей строки (включая \n)
-            line_len[i] = cur_len + 1;
-            i++;
+            line_length[line_count - 1] = i - (line_start[line_count - 1] - file_data) + 1;
             
-            // Устанавливаем начало следующей строки (если не конец файла)
-            if (i < MAX_LINES && pos + 1 < file_size) {
-                line_start[i] = &file_data[pos + 1];
+            // Начало следующей строки (если не конец файла)
+            if (i + 1 < file_size && line_count < MAX_LINES) {
+                line_start[line_count] = &file_data[i + 1];
+                line_length[line_count] = 0;
+                line_count++;
             }
-            cur_len = 0;
-        } else {
-            cur_len++;
         }
     }
-    
+
     // Обработка последней строки (если файл не заканчивается на \n)
-    if (cur_len > 0 && i < MAX_LINES) {
-        line_len[i] = cur_len;
-        i++;
+    if (line_count > 0 && line_length[line_count - 1] == 0) {
+        line_length[line_count - 1] = file_size - (line_start[line_count - 1] - file_data);
     }
 
-    int total_lines = i;
+    // ========== ДОБАВЛЕНО: ОТЛАДОЧНАЯ ПЕЧАТЬ ТАБЛИЦЫ MMAP ==========
+    printf("\n=== DEBUG: MMap Line Table ===\n");
+    printf("File mapped at: %p, Size: %ld bytes\n", file_data, file_size);
+    printf("Total lines: %d\n", line_count);
+    printf("Line | Memory Addr  | Length | Content Preview\n");
+    printf("-----+-------------+--------+----------------\n");
+    
+    for (int j = 0; j < line_count; j++) {
+        // Создаем предпросмотр содержимого строки
+        char preview[21];
+        int preview_len = line_length[j] < 20 ? line_length[j] : 20;
+        
+        // Копируем данные напрямую из памяти (mmap)
+        memcpy(preview, line_start[j], preview_len);
+        preview[preview_len] = '\0';
+        
+        // Заменяем непечатаемые символы
+        for (int k = 0; k < preview_len; k++) {
+            if (preview[k] == '\n') preview[k] = '\\';
+            if (preview[k] == '\t') preview[k] = '→';
+            if (preview[k] < 32 || preview[k] > 126) preview[k] = '.';
+        }
+        
+        // Выводим информацию о строке (адрес в памяти вместо смещения в файле)
+        printf("%4d | %11p | %6d | %s\n", 
+               j+1, line_start[j], line_length[j], preview);
+    }
+    
+    printf("=== End of Table ===\n\n");
+    // ========== КОНЕЦ ДОБАВЛЕНИЯ ==========
 
     // Интерактивный цикл
     for (;;) {
@@ -79,33 +110,27 @@ int main(int argc, char **argv) {
             break;
         }
         
-        input[strcspn(input, "\n")] = '\0';
-        
-        if (input[0] == '\0') {
-            continue;
-        }
-        
+        // Преобразование ввода в число
         char *endptr;
-        ask = (int)strtol(input, &endptr, 10);
+        line_no = (int)strtol(input, &endptr, 10);
         
-        if (*endptr != '\0') {
+        if (*endptr != '\0' && *endptr != '\n') {
             printf("Invalid input. Please enter a number.\n");
             continue;
         }
         
-        if (ask == 0) {
+        if (line_no == 0) {
             break;
         }
         
-        if (ask < 1 || ask > total_lines) {
-            fprintf(stderr, "Bad Line Number. Available lines: 1-%d\n", total_lines);
+        if (line_no < 1 || line_no > line_count) {
+            fprintf(stderr, "Bad Line Number. Available lines: 1-%d\n", line_count);
             continue;
         }
 
         // Вывод строки используя отображение в память
-        // Вместо lseek + read + write используем прямое обращение к памяти
-        int line_index = ask - 1;
-        fwrite(line_start[line_index], 1, line_len[line_index], stdout);
+        int idx = line_no - 1;
+        fwrite(line_start[idx], 1, line_length[idx], stdout);
     }
 
     // Освобождение ресурсов
