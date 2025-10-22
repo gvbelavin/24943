@@ -89,6 +89,45 @@ int main(int argc, char **argv) {
 
     int total_lines = i;
 
+    // ========== ДОБАВЛЕНО: ОТЛАДОЧНАЯ ПЕЧАТЬ ТАБЛИЦЫ ==========
+    printf("\n=== DEBUG: Line Table ===\n");
+    printf("Total lines: %d\n", total_lines);
+    printf("Line |  Offset  | Length | Content Preview\n");
+    printf("-----+----------+--------+----------------\n");
+    
+    // Сохраняем текущую позицию в файле
+    off_t current_pos = lseek(fd, 0L, SEEK_CUR);
+    
+    for (int j = 0; j < total_lines; j++) {
+        // Перемещаемся к началу строки для предпросмотра
+        lseek(fd, off[j], SEEK_SET);
+        
+        // Читаем первые 20 символов строки для предпросмотра
+        char preview[21];
+        int preview_len = len[j] < 20 ? len[j] : 20;
+        ssize_t r = read(fd, preview, preview_len);
+        
+        if (r > 0) {
+            // Заменяем непечатаемые символы
+            for (int k = 0; k < r; k++) {
+                if (preview[k] == '\n') preview[k] = '\\';
+                if (preview[k] == '\t') preview[k] = '→';
+                if (preview[k] < 32 || preview[k] > 126) preview[k] = '.';
+            }
+            preview[r] = '\0';
+        } else {
+            strcpy(preview, "ERROR");
+        }
+        
+        printf("%4d | %8ld | %6d | %s\n", j+1, off[j], len[j], preview);
+    }
+    
+    // Восстанавливаем позицию в файле
+    lseek(fd, current_pos, SEEK_SET);
+    printf("=== End of Table ===\n\n");
+    printf("You have 5 seconds to enter line numbers. Enter 0 to exit.\n");
+    // ========== КОНЕЦ ДОБАВЛЕНИЯ ==========
+
     for (;;) {
         printf("Line number: ");
         fflush(stdout);  // Сбросить буфер вывода перед установкой alarm
