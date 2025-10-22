@@ -2,21 +2,23 @@
 #include <time.h>
 #include <stdlib.h>
 
-int main(void){
-    if (setenv("TZ", "America/Los_Angeles", 1) != 0){
-        
-        putenv("TZ=America/Los_Angeles");
-    }
-    tzset(); 
+extern char *tzname[];
 
-    time_t now = time(NULL);
-    struct tm *pt = localtime(&now); 
-    if (!pt) return 1;
+int main() {
+    time_t now;
+    struct tm *sp;
+ 
+    (void) time( &now );
+ 
+    putenv("TZ=PST8PDT");
+ 
+    printf("%s", ctime( &now ) );
 
-    char buf[64];
-    pt->tm_hour -=1;
-    if (strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S %Z", pt) == 0) return 1;
+    sp = localtime(&now);
+    printf("%d/%d/%02d %d:%02d %s\n",
+           sp->tm_mon + 1, sp->tm_mday,
+           sp->tm_year - 100, sp->tm_hour,
+           sp->tm_min, tzname[sp->tm_isdst]);
 
-    printf("California time: %s\n", buf);
     return 0;
 }
