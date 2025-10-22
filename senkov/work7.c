@@ -43,7 +43,6 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Build line table correctly
     line_start[0] = file_data;
     line_length[0] = 0;
     line_count = 1;
@@ -52,7 +51,6 @@ int main(int argc, char **argv) {
         line_length[line_count - 1]++;
         
         if (file_data[i] == '\n') {
-            // Save current line length and setup next line
             if (i + 1 < file_size && line_count < MAX_LINES) {
                 line_start[line_count] = &file_data[i + 1];
                 line_length[line_count] = 0;
@@ -63,7 +61,6 @@ int main(int argc, char **argv) {
 
     printf("File mapped successfully. Total lines: %d\n", line_count);
 
-    // Interactive loop
     for (;;) {
         printf("Line number: ");
         fflush(stdout);
@@ -89,10 +86,9 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        // Output the line with proper formatting
         int idx = line_no - 1;
         write(1, line_start[idx], line_length[idx]);
-        printf("\n");  // Add newline after each output
+        printf("\n");
     }
 
     munmap(file_data, file_size);
