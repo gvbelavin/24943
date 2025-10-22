@@ -30,7 +30,6 @@ int main(int argc, char *argv[]) {
     off_t current_offset = 0;
     ssize_t bytes_read;
 
-    // Построение таблицы строк
     table[0].offset = 0;
     while ((bytes_read = read(fd, buffer, BUFFER_SIZE)) > 0) {
         for (int i = 0; i < bytes_read; i++) {
@@ -48,13 +47,11 @@ int main(int argc, char *argv[]) {
         current_offset += bytes_read;
     }
 
-    // Обработка последней строки если она не пустая
     if (line_count == 0 || table[line_count].offset < current_offset) {
         table[line_count].length = current_offset - table[line_count].offset;
         line_count++;
     }
 
-    // Обработка запросов пользователя
     int line_num;
     while (1) {
         printf("Введите номер строки (0 для выхода): ");
@@ -62,7 +59,6 @@ int main(int argc, char *argv[]) {
         int result = scanf("%d", &line_num);
         if (result != 1) {
             printf("Ошибка: введите целое число\n");
-            // Очистка буфера ввода
             while (getchar() != '\n');
             continue;
         }
@@ -74,7 +70,6 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // Чтение и вывод запрошенной строки
         struct LineTable *entry = &table[line_num - 1];
         lseek(fd, entry->offset, SEEK_SET);
         
