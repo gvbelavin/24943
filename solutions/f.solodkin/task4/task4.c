@@ -7,6 +7,26 @@ struct Node {
     struct Node *next;
 };
 
+// Функция для удаления ESC-последовательностей
+void remove_esc_sequences(char *str) {
+    char *src = str;
+    char *dst = str;
+    
+    while (*src) {
+        if (*src == '\x1b') {  // Нашли ESC символ
+            // Пропускаем всё до следующей буквы
+            src++;
+            while (*src && (*src < 'A' || *src > 'Z') && (*src < 'a' || *src > 'z')) {
+                src++;
+            }
+            if (*src) src++; // Пропускаем букву
+        } else {
+            *dst++ = *src++;
+        }
+    }
+    *dst = '\0';
+}
+
 int main() {
     struct Node *head = NULL;
     struct Node *current = NULL;
@@ -19,11 +39,8 @@ int main() {
     
         if (buffer[0] == '.') break;
         
-        // Простая проверка на стрелки - если есть символ ESC, пропускаем
-        if (strstr(buffer, "\x1b") != NULL) {
-            printf("(стрелка проигнорирована)\n");
-            continue;
-        }
+        // Удаляем ESC-последовательности
+        remove_esc_sequences(buffer);
         
         size_t len = strlen(buffer);
         if (len > 0 && buffer[len-1] == '\n') {
@@ -43,11 +60,10 @@ int main() {
 
         if (head == NULL) {
             head = new_node;
-            current = new_node;
         } else {
             current->next = new_node;
-            current = new_node;
         }
+        current = new_node;
     }
     
     printf("\nСписок строк:\n");

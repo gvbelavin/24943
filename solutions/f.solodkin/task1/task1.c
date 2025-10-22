@@ -4,6 +4,9 @@
 #include <string.h>
 #include <sys/resource.h>
 
+// Глобальная переменная для хранения текущего ulimit
+static long current_ulimit = -1;
+
 int main(int argc, char *argv[]) {
     int opt;
     extern char *optarg;
@@ -45,18 +48,24 @@ int main(int argc, char *argv[]) {
                 
             case 'u': {
                 printf("=== Ulimit ===\n");
-                struct rlimit rlim;
-                if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
-                    printf("Ulimit (file size): %ld\n", (long)rlim.rlim_cur);
+                if (current_ulimit != -1) {
+                    // Показываем значение, которое было установлено через -U
+                    printf("Ulimit (file size): %ld\n", current_ulimit);
                 } else {
-                    perror("getrlimit failed");
+                    // Или получаем текущее значение из системы
+                    struct rlimit rlim;
+                    if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
+                        printf("Ulimit (file size): %ld\n", (long)rlim.rlim_cur);
+                        current_ulimit = (long)rlim.rlim_cur;
+                    } else {
+                        perror("getrlimit failed");
+                    }
                 }
                 break;
             }
             
             case 'U': {
                 printf("=== Change Ulimit ===\n");
-                struct rlimit rlim;
                 long new_limit = atol(optarg);
                 
                 if (new_limit < 0) {
@@ -64,9 +73,12 @@ int main(int argc, char *argv[]) {
                     break;
                 }
                 
+                struct rlimit rlim;
                 if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
                     rlim.rlim_cur = (rlim_t)new_limit;
                     if (setrlimit(RLIMIT_FSIZE, &rlim) == 0) {
+                        // Сохраняем новое значение в глобальной переменной
+                        current_ulimit = new_limit;
                         printf("Ulimit changed to: %ld\n", new_limit);
                     } else {
                         perror("setrlimit failed");
