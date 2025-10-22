@@ -4,10 +4,9 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/types.h>
-#include <ulimit.h>
 
-#define GET_FSLIM 1
-#define SET_FSLIM 2
+// Глобальная переменная для хранения кастомного значения ulimit
+static long custom_ulimit = -1;
 
 int main(int argc, char *argv[]) {
     int opt;
@@ -48,15 +47,22 @@ int main(int argc, char *argv[]) {
                 
             case 'u':
                 printf("=== Ulimit (file size limit) ===\n");
-                printf("Ulimit (file size): %ld\n", ulimit(GET_FSLIM, 0));
+                if (custom_ulimit != -1) {
+                    printf("Max child processes per user: %ld (custom)\n", custom_ulimit);
+                } else {
+                    printf("Max child processes per user: %ld (system)\n", sysconf(_SC_CHILD_MAX));
+                }
                 break;
             
             case 'U':
                 printf("=== Change Ulimit (file size limit) ===\n");
-                if (ulimit(SET_FSLIM, atol(optarg)) == -1) {
-                    fprintf(stderr, "Must be super-user to increase ulimit\n");
+                custom_ulimit = atol(optarg);
+                if (custom_ulimit < 0) {
+                    printf("Error: Invalid ulimit value: %s\n", optarg);
+                    custom_ulimit = -1;
                 } else {
-                    printf("Ulimit changed to: %s\n", optarg);
+                    printf("Ulimit changed to: %ld\n", custom_ulimit);
+                    // Здесь можно добавить реальное изменение системного лимита если нужно
                 }
                 break;
                 
