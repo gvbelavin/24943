@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <string.h>
-// #include <stdlib.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
 void termination_handler(int signum);
 
@@ -19,21 +21,44 @@ struct sigaction alarm_act;
 
 int main(int argc, char *argv[])
 {
+
+    // File open
+
     fd = open(argv[1], O_RDONLY);
+    if (fd == -1)
+    {
+        perror("Error opening file.");
+        exit(1);
+    }
+    struct stat fst;
+    fstat(fd, &fst);
+    size_t flength = fst.st_size;
+
+    char *map = mmap(NULL, flength, PROT_READ, MAP_SHARED, fd, 0);
+    if (map == MAP_FAILED)
+    {
+        perror("`mmap` error!");
+        exit(1);
+    }
+
+
+    // Tables
+
     offsets[0] = 0;
     alarm_act.sa_handler = termination_handler;
 
     // alarm_act.__sigaction_handler.sa_handler = termination_handler;
 
-    int pos = 0;
+    // int pos = 0;
+    char *ptr = map;
     int lnlen = 0;
-    while (read(fd, &buf, 1) > 0)
+    while (ptr < (map + flength))
     {
-        pos++;
-        if (buf == '\n')
+        ptr++;
+        if (*ptr == '\n')
         {
             lnlens[lines] = lnlen;
-            offsets[++lines] = pos;
+            offsets[++lines] = ptr - map;
             lnlen = 0;
         }
         else lnlen++;
@@ -63,18 +88,27 @@ int main(int argc, char *argv[])
         return -1;
     }
     
-    lseek(fd, offsets[input], SEEK_SET);
+    // lseek(fd, offsets[input], SEEK_SET);
+    ptr = map + offsets[input];
 
     char buff[256];
     int idx = 0;
-    while (read(fd, &(buff[idx]), 1) > 0 && buff[idx] != '\n')
+    while (ptr < (map + flength) && *ptr != '\n')
     {
-        idx++;
+        buff[idx++] = *(ptr++);
     }
     buff[idx] = '\0';
     // for (int i = 0; read(fd, &(buff[i]), 1) > 0 && buff[i] != '\n'; i++);
 
     printf("%s\n", buff);
+
+    // Map deinit
+    int ret = munmap(map, flength);
+    if (ret == -1)
+    {
+        perror("`munmap` error!");
+        exit(1);
+    }
     
     return 0;
 }
