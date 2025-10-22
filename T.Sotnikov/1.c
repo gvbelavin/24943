@@ -58,9 +58,9 @@ int main(int argc, char** argv)
         switch (current_option)
         {
             case 'i':
-                printf("Real UID: %d\n", getuid());
+                printf("Real UID:      %d\n", getuid());
                 printf("Effective UID: %d\n", geteuid());
-                printf("Real GID: %d\n", getgid());
+                printf("Real GID:      %d\n", getgid());
                 printf("Effective GID: %d\n", getegid());
                 break;
 
@@ -75,7 +75,7 @@ int main(int argc, char** argv)
             }
 
             case 'p':
-                printf("PID: %d\n", getpid());
+                printf("PID:  %d\n", getpid());
                 printf("PPID: %d\n", getppid());
                 printf("PGID: %d\n", getpgrp());
                 break;
