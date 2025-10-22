@@ -13,7 +13,7 @@ void open_test(const char *path)
     FILE *restr_f = fopen(path, "r");
     if (restr_f == NULL)
     {
-        perror("Couldn't open file");
+        fprintf(stderr, "Couldn't open file\n");
     }
     else
     {
@@ -24,8 +24,15 @@ void open_test(const char *path)
 
 int main(int argc, char const *argv[])
 {
+    if (argc < 2)
+    {
+        fprintf(stderr, "Usage: ./this_program \"path/to/file\"\n");
+        return -1;
+    }
+    printf("Testing with effective UID:\n");
     printf("UID: %d, EUID: %d\n", getuid(), geteuid());
     open_test(argv[1]);
+    printf("\nTesting with real UID:\n");
     setuid(getuid());
     printf("UID: %d, EUID: %d\n", getuid(), geteuid());
     open_test(argv[1]);
