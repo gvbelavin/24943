@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Отображение файла в память
+    // Отображение файла в память вместо read()
     file_data = mmap(NULL, file_size, PROT_READ, MAP_SHARED, fd, 0);
     if (file_data == MAP_FAILED) {
         perror("mmap");
@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Построение таблицы строк
+    // Построение таблицы строк с использованием mmap
     line_start[0] = file_data;  // Первая строка начинается с начала файла
     line_length[0] = 0;
     line_count = 1;
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
         line_length[line_count - 1] = file_size - (line_start[line_count - 1] - file_data);
     }
 
-    // ========== ДОБАВЛЕНО: ОТЛАДОЧНАЯ ПЕЧАТЬ ТАБЛИЦЫ MMAP ==========
+    // ========== ОТЛАДОЧНАЯ ПЕЧАТЬ ТАБЛИЦЫ MMAP ==========
     printf("\n=== DEBUG: MMap Line Table ===\n");
     printf("File mapped at: %p, Size: %ld bytes\n", file_data, file_size);
     printf("Total lines: %d\n", line_count);
@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
         char preview[21];
         int preview_len = line_length[j] < 20 ? line_length[j] : 20;
         
-        // Копируем данные напрямую из памяти (mmap)
+        // Копируем данные напрямую из памяти (mmap) вместо read()
         memcpy(preview, line_start[j], preview_len);
         preview[preview_len] = '\0';
         
@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
     }
     
     printf("=== End of Table ===\n\n");
-    // ========== КОНЕЦ ДОБАВЛЕНИЯ ==========
+    // ========== КОНЕЦ ОТЛАДОЧНОЙ ПЕЧАТИ ==========
 
     // Интерактивный цикл
     for (;;) {
@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        // Вывод строки используя отображение в память
+        // Вывод строки используя отображение в память вместо write()
         int idx = line_no - 1;
         fwrite(line_start[idx], 1, line_length[idx], stdout);
     }
