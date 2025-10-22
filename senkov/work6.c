@@ -9,7 +9,7 @@
 enum { MAX_LINES = 500, BUFSZ = 256 };
 
 int fd;  // Глобальная переменная для доступа из обработчика сигнала
-int first_input = 1;  // Флаг первого ввода - НОВАЯ ПЕРЕМЕННАЯ
+int first_input = 1;  // Флаг первого ввода
 
 // Обработчик сигнала SIGALRM - печатает весь файл
 void timeout_handler(int sig) {
@@ -59,6 +59,15 @@ int main(int argc, char **argv) {
         return 1; 
     }
 
+    // ПРОВЕРКА НА НУЛЕВОЙ ФАЙЛ - НОВЫЙ КОД
+    off_t file_size = lseek(fd, 0, SEEK_END);
+    if (file_size == 0) {
+        fprintf(stderr, "Error: File is empty\n");
+        close(fd);
+        return 1;
+    }
+    lseek(fd, 0, SEEK_SET);  // Возвращаемся в начало
+
     // Установка обработчика сигнала SIGALRM
     if (signal(SIGALRM, timeout_handler) == SIG_ERR) {
         perror("signal");
@@ -89,6 +98,13 @@ int main(int argc, char **argv) {
     }
 
     int total_lines = i;
+
+    // Дополнительная проверка если файл состоит только из пустых строк
+    if (total_lines == 0) {
+        fprintf(stderr, "Error: No lines found in file\n");
+        close(fd);
+        return 1;
+    }
 
     printf("\n=== DEBUG: Line Table ===\n");
     printf("Total lines: %d\n", total_lines);
@@ -131,20 +147,30 @@ int main(int argc, char **argv) {
         printf("Line number: ");
         fflush(stdout);  // Сбросить буфер вывода
         
-        // Установить таймер на 5 секунд ТОЛЬКО для первого ввода - ИЗМЕНЕНО
+        // Установить таймер на 5 секунд ТОЛЬКО для первого ввода
         if (first_input) {
             alarm(5);
         }
         
+        // ПРОВЕРКА НА ПЕРЕПОЛНЕНИЕ БУФЕРА ВВОДА - НОВЫЙ КОД
         if (fgets(input, sizeof(input), stdin) == NULL) {
             alarm(0);  // Отключить таймер при выходе
             break;
         }
         
+        // Проверка на переполнение буфера (если ввод не содержит \n)
+        if (strchr(input, '\n') == NULL) {
+            // Буфер переполнен, очищаем остаток
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF);
+            fprintf(stderr, "Error: Input too long. Maximum %zu characters allowed.\n", sizeof(input) - 1);
+            continue;
+        }
+        
         // Отключить таймер после успешного ввода
         alarm(0);
         
-        // Сбрасываем флаг первого ввода после успешного получения данных - НОВЫЙ КОД
+        // Сбрасываем флаг первого ввода после успешного получения данных
         if (first_input && input[0] != '\0') {
             first_input = 0;
             printf("First input received. No more time limits.\n");
