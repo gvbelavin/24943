@@ -10,8 +10,8 @@ int main() {
  
     (void) time( &now );
  
-    putenv("TZ=PST8PDT");
- 
+    putenv("America/Los_Angeles");
+    tzset(); 
     printf("%s", ctime( &now ) );
 
     sp = localtime(&now);
