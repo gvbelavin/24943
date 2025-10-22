@@ -37,7 +37,6 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    // Получаем размер файла
     struct stat sb;
     if (fstat(fd, &sb) == -1) {
         perror("Ошибка получения информации о файле");
@@ -47,7 +46,6 @@ int main(int argc, char *argv[]) {
     
     size_t file_size = sb.st_size;
 
-    // Отображаем файл в память
     char *file_map = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (file_map == MAP_FAILED) {
         perror("Ошибка отображения файла");
@@ -57,11 +55,9 @@ int main(int argc, char *argv[]) {
 
     struct LineTable table[MAX_LINES];
     int line_count = 0;
-    off_t current_offset = 0;
 
     table[0].offset = 0;
     
-    // Строим таблицу строк по отображенному файлу
     for (off_t i = 0; i < file_size; i++) {
         if (file_map[i] == '\n') {
             table[line_count].length = i - table[line_count].offset;
@@ -76,7 +72,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Обрабатываем последнюю строку, если она не заканчивается символом новой строки
     if (line_count == 0 || table[line_count].offset < file_size) {
         table[line_count].length = file_size - table[line_count].offset;
         line_count++;
@@ -95,41 +90,55 @@ int main(int argc, char *argv[]) {
     sigaction(SIGALRM, &sa, NULL);
 
     printf("\nУ вас есть 5 секунд чтобы ввести номер строки.\n");
-    printf("Введите номер строки (0 для выхода): ");
-    
-    fflush(stdout);
-    
-    alarm(5);
     
     int line_num;
-    int result = scanf("%d", &line_num);
-    
-    alarm(0);
-    
-    if (timeout_occurred || result != 1) {
+    int result;
+    while (1) {
+        printf("Введите номер строки (0 для выхода): ");
+        fflush(stdout);
+        
+        alarm(5);
+        result = scanf("%d", &line_num);
+        alarm(0);
+        
         if (timeout_occurred) {
             printf("\nВремя вышло!\n");
+            print_entire_file(file_map, file_size);
+            munmap(file_map, file_size);
+            close(fd);
+            return 0;
         }
-        print_entire_file(file_map, file_size);
-        munmap(file_map, file_size);
-        close(fd);
-        return 0;
+        
+        if (result == 1) {
+            break;
+        } else {
+            printf("Ошибка: введите целое число\n");
+            while (getchar() != '\n');
+        }
     }
 
     while (1) {
         if (line_num == 0) break;
+        
         if (line_num < 1 || line_num > line_count) {
             printf("Неверный номер строки. Допустимый диапазон: 1-%d\n", line_count);
         } else {
             struct LineTable *entry = &table[line_num - 1];
-            // Выводим строку непосредственно из отображенной памяти
             printf("Строка %d: %.*s", line_num, (int)entry->length, 
                    file_map + entry->offset);
         }
 
-        printf("\nВведите номер строки (0 для выхода): ");
-        result = scanf("%d", &line_num);
-        if (result != 1) break;
+        while (1) {
+            printf("\nВведите номер строки (0 для выхода): ");
+            result = scanf("%d", &line_num);
+            
+            if (result == 1) {
+                break;
+            } else {
+                printf("Ошибка: введите целое число\n");
+                while (getchar() != '\n');
+            }
+        }
     }
 
     munmap(file_map, file_size);
