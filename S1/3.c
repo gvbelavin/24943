@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <wordexp.h>
 
-void open_test(char *path)
+void open_test(const char *path)
 {
     // char fullpath[200];
     // strcpy(fullpath, getenv("HOME"));
