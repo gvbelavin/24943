@@ -3,11 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
-#include <bits/getopt_core.h>
 
 int main(int argc, char *argv[]) {
     int opt;
     extern char *optarg;
+    extern int optind, opterr, optopt;
     
     // Если нет аргументов
     if (argc == 1) {
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
                 printf("=== Ulimit ===\n");
                 struct rlimit rlim;
                 if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
-                    printf("Ulimit (file size): %ld\n", rlim.rlim_cur);
+                    printf("Ulimit (file size): %ld\n", (long)rlim.rlim_cur);
                 } else {
                     perror("getrlimit failed");
                 }
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
                 }
                 
                 if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
-                    rlim.rlim_cur = new_limit;
+                    rlim.rlim_cur = (rlim_t)new_limit;
                     if (setrlimit(RLIMIT_FSIZE, &rlim) == 0) {
                         printf("Ulimit changed to: %ld\n", new_limit);
                     } else {
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
                 printf("=== Core File Size ===\n");
                 struct rlimit rlim;
                 if (getrlimit(RLIMIT_CORE, &rlim) == 0) {
-                    printf("Core file size: %ld bytes\n", rlim.rlim_cur);
+                    printf("Core file size: %ld bytes\n", (long)rlim.rlim_cur);
                 } else {
                     perror("getrlimit core failed");
                 }
@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
                 }
                 
                 if (getrlimit(RLIMIT_CORE, &rlim) == 0) {
-                    rlim.rlim_cur = new_size;
+                    rlim.rlim_cur = (rlim_t)new_size;
                     if (setrlimit(RLIMIT_CORE, &rlim) == 0) {
                         printf("Core file size changed to: %ld bytes\n", new_size);
                     } else {
