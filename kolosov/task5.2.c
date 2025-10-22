@@ -84,28 +84,36 @@ int main(int argc, char *argv[]) {
     sigaction(SIGALRM, &sa, NULL);
 
     printf("\nУ вас есть 5 секунд чтобы ввести номер строки.\n");
-    printf("Введите номер строки (0 для выхода): ");
-    
-    fflush(stdout);
-    
-    alarm(5);
     
     int line_num;
-    int result = scanf("%d", &line_num);
+    int result;
     
-    alarm(0);
-    
-    if (timeout_occurred || result != 1) {
+    while (1) {
+        printf("Введите номер строки (0 для выхода): ");
+        fflush(stdout);
+        
+        alarm(5);
+        result = scanf("%d", &line_num);
+        alarm(0);
+        
         if (timeout_occurred) {
             printf("\nВремя вышло!\n");
+            print_entire_file(fd);
+            close(fd);
+            return 0;
         }
-        print_entire_file(fd);
-        close(fd);
-        return 0;
+        
+        if (result == 1) {
+            break;
+        } else {
+            printf("Ошибка: введите целое число\n");
+            while (getchar() != '\n');
+        }
     }
 
     while (1) {
         if (line_num == 0) break;
+        
         if (line_num < 1 || line_num > line_count) {
             printf("Неверный номер строки. Допустимый диапазон: 1-%d\n", line_count);
         } else {
@@ -124,9 +132,17 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        printf("\nВведите номер строки (0 для выхода): ");
-        result = scanf("%d", &line_num);
-        if (result != 1) break;
+        while (1) {
+            printf("\nВведите номер строки (0 для выхода): ");
+            result = scanf("%d", &line_num);
+            
+            if (result == 1) {
+                break;
+            } else {
+                printf("Ошибка: введите целое число\n");
+                while (getchar() != '\n');
+            }
+        }
     }
 
     close(fd);
