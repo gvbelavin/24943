@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
-#include <bits/getopt_core.h>
 
 // Добавляем глобальную переменную для запоминания ulimit
 static long custom_ulimit = -1;
@@ -11,6 +10,7 @@ static long custom_ulimit = -1;
 int main(int argc, char *argv[]) {
     int opt;
     extern char *optarg;
+    extern int optopt;  // Добавляем эту строку
     
     
     if (argc == 1) {
