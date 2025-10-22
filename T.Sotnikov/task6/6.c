@@ -108,6 +108,18 @@ void timeout_handler(int s)
     exit(0);
 }
 
+void print_table(LineInfo* table)
+{
+    printf("===== lines table =====\n");
+    for (size_t i = 0; i < line_cnt; i++)
+    {
+        printf("line: %zu\n", i+1);
+        printf("offset: %zu\n", table[i].offset);
+        printf("length: %zu\n\n", table[i].len);
+    }
+    printf("=======================\n");
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 2)
@@ -134,12 +146,12 @@ int main(int argc, char** argv)
     {
         if (is_user_managed)
         {
-            printf("Enter line number (0 to exit): ");
+            printf("Enter line number (0 to exit). Enter \"t\" to watch lines table.: ");
         }
 
         if (!is_user_managed)
         {
-            printf("Enter line number (0 to exit). You have 5 seconds: ");
+            printf("Enter line number (0 to exit). Enter \"t\" to watch lines table. You have 5 seconds: ");
             alarm(5);
         }
         
@@ -149,6 +161,12 @@ int main(int argc, char** argv)
             perror("fgets");
             free(input_buf);
             break;
+        }
+
+        if (input_buf[0] == 't')
+        {
+            print_table(table);
+            continue;
         }
 
 DEBUG("полученная строка до валидации: %s\n", input_buf);
@@ -161,7 +179,7 @@ DEBUG("ptr: %c, input_buf: %c\n\n", *ptr == '\n' ? '\\n' : *ptr, *input_buf);
 
         if (ptr == input_buf)
         {
-            fprintf(stderr, "Enter a number of line in file.\n");
+            fprintf(stderr, "Enter a number of line in file. Enter \"t\" to watch lines table.\n");
             free(input_buf);
             continue;
         }
@@ -175,8 +193,10 @@ DEBUG("ptr: %c, input_buf: %c\n\n", *ptr == '\n' ? '\\n' : *ptr, *input_buf);
 
         if (line_num < 0 || line_num > line_cnt)
         {
+            is_user_managed = true;
+            alarm(0);
             free(input_buf);
-            printf("Line number must be between 1 and %zu.\n", line_cnt);
+            printf("Line number must be between 1 and %zu.\n Enter \"t\" to watch lines table.\n", line_cnt);
             continue;
         }
 
