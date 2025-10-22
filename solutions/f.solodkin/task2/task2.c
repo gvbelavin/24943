@@ -7,12 +7,17 @@ extern char *tzname[];
 int main() {
     time_t now;
     struct tm *sp;
- 
-    (void) time( &now );
- 
-    putenv("America/Los_Angeles");
+
+    (void) time(&now);
+
+    
+    if (setenv("TZ", "America/Los_Angeles", 1) != 0) {
+        
+        putenv("TZ=America/Los_Angeles");
+    }
     tzset(); 
-    printf("%s", ctime( &now ) );
+
+    printf("%s", ctime(&now));
 
     sp = localtime(&now);
     printf("%d/%d/%02d %d:%02d %s\n",
