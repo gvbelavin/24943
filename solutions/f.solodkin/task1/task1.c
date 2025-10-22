@@ -5,6 +5,9 @@
 #include <sys/resource.h>
 #include <bits/getopt_core.h>
 
+// Добавляем глобальную переменную для запоминания ulimit
+static long custom_ulimit = -1;
+
 int main(int argc, char *argv[]) {
     int opt;
     extern char *optarg;
@@ -44,10 +47,15 @@ int main(int argc, char *argv[]) {
                 break;
                 
             case 'u': {
-                printf("=== Ulimit (max processes) ===\n");
+                printf("=== Ulimit ===\n");
                 struct rlimit rlim;
-                if (getrlimit(RLIMIT_NPROC, &rlim) == 0) {
-                    printf("Ulimit (max processes): %ld\n", (long)rlim.rlim_cur);
+                if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
+                    // Если было установлено через -U, показываем это значение
+                    if (custom_ulimit != -1) {
+                        printf("Ulimit (file size): %ld\n", custom_ulimit);
+                    } else {
+                        printf("Ulimit (file size): %ld\n", rlim.rlim_cur);
+                    }
                 } else {
                     perror("getrlimit failed");
                 }
@@ -55,7 +63,7 @@ int main(int argc, char *argv[]) {
             }
             
             case 'U': {
-                printf("=== Change Ulimit (max processes) ===\n");
+                printf("=== Change Ulimit ===\n");
                 struct rlimit rlim;
                 long new_limit = atol(optarg);
                 
@@ -64,9 +72,11 @@ int main(int argc, char *argv[]) {
                     break;
                 }
                 
-                if (getrlimit(RLIMIT_NPROC, &rlim) == 0) {
-                    rlim.rlim_cur = (rlim_t)new_limit;
-                    if (setrlimit(RLIMIT_NPROC, &rlim) == 0) {
+                if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
+                    rlim.rlim_cur = new_limit;
+                    if (setrlimit(RLIMIT_FSIZE, &rlim) == 0) {
+                        // Запоминаем значение для показа в -u
+                        custom_ulimit = new_limit;
                         printf("Ulimit changed to: %ld\n", new_limit);
                     } else {
                         perror("setrlimit failed");
@@ -81,7 +91,7 @@ int main(int argc, char *argv[]) {
                 printf("=== Core File Size ===\n");
                 struct rlimit rlim;
                 if (getrlimit(RLIMIT_CORE, &rlim) == 0) {
-                    printf("Core file size: %ld bytes\n", (long)rlim.rlim_cur);
+                    printf("Core file size: %ld bytes\n", rlim.rlim_cur);
                 } else {
                     perror("getrlimit core failed");
                 }
@@ -99,7 +109,7 @@ int main(int argc, char *argv[]) {
                 }
                 
                 if (getrlimit(RLIMIT_CORE, &rlim) == 0) {
-                    rlim.rlim_cur = (rlim_t)new_size;
+                    rlim.rlim_cur = new_size;
                     if (setrlimit(RLIMIT_CORE, &rlim) == 0) {
                         printf("Core file size changed to: %ld bytes\n", new_size);
                     } else {
@@ -146,8 +156,8 @@ int main(int argc, char *argv[]) {
                 printf("  -i  Print user and group IDs\n");
                 printf("  -s  Become process group leader\n");
                 printf("  -p  Print process IDs\n");
-                printf("  -u  Print ulimit (max processes)\n");
-                printf("  -U <value> Change ulimit (max processes)\n");
+                printf("  -u  Print ulimit\n");
+                printf("  -U <value> Change ulimit\n");
                 printf("  -c  Print core file size\n");
                 printf("  -C <size> Change core file size\n");
                 printf("  -d  Print current directory\n");
