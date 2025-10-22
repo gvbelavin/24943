@@ -136,6 +136,8 @@ int main(int argc, char **argv) {
     }
     
     printf("=== End of Table ===\n\n");
+    
+    // ВАЖНО: Сообщение о таймере для пользователя
     printf("You have 5 seconds for FIRST input. Enter 0 to exit.\n");
 
     // Интерактивный цикл
