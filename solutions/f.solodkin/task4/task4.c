@@ -7,28 +7,28 @@ struct Node {
     struct Node *next;
 };
 
-// Удаляем ESC-последовательности БЕЗ оставления пробелов
+
 void remove_escape_sequences(char *str) 
 {
     int i = 0, j = 0;
     while (str[i] != '\0') 
     {
-        // Если нашли ESC символ (\x1b или 27)
+        
         if ((unsigned char)str[i] == '\x1B') 
         {
-            // Пропускаем ESC и всю последовательность
-            i++; // пропускаем ESC
-            // Пропускаем все символы до буквы (A,B,C,D для стрелок)
+            
+            i++; 
+            
             while (str[i] != '\0' && str[i] != 'A' && str[i] != 'B' && 
                    str[i] != 'C' && str[i] != 'D' && str[i] != '~') 
                    {
                     i++;
                    }
-            if (str[i] != '\0') i++; // пропускаем последний символ (A,B,C,D,~)
+            if (str[i] != '\0') i++; 
         } 
         else 
         {
-            // Копируем обычный символ
+            
             str[j] = str[i];
             j++;
             i++;
@@ -49,7 +49,7 @@ int main() {
     
         if (buffer[0] == '.') break;
         
-        // Удаляем ESC-последовательности вместо простой проверки
+       
         remove_escape_sequences(buffer);
         
         size_t len = strlen(buffer);
@@ -58,7 +58,7 @@ int main() {
             len--;
         }
         
-        // Пропускаем пустые строки
+      
         if (len == 0) continue;
         
         char *str = malloc(len + 1);

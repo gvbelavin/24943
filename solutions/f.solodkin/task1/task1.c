@@ -5,7 +5,7 @@
 #include <sys/resource.h>
 #include <sys/types.h>
 
-// Глобальная переменная для хранения кастомного значения ulimit
+
 static long custom_ulimit = -1;
 
 int main(int argc, char *argv[]) {
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
                     custom_ulimit = -1;
                 } else {
                     printf("Ulimit changed to: %ld\n", custom_ulimit);
-                    // Здесь можно добавить реальное изменение системного лимита если нужно
+                    
                 }
                 break;
                 
