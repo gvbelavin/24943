@@ -3,22 +3,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
-
-// Глобальная переменная для хранения текущего ulimit
-static long current_ulimit = -1;
+#include <bits/getopt_core.h>
 
 int main(int argc, char *argv[]) {
     int opt;
     extern char *optarg;
-    extern int optind, opterr, optopt;
     
-    // Если нет аргументов
+    
     if (argc == 1) {
         printf("No arguments provided. Use -h for help.\n");
         return 0;
     }
     
-    // Обрабатываем опции
+    
     while ((opt = getopt(argc, argv, "ispucdvU:C:V:h")) != -1) {
         switch (opt) {
             case 'i':
@@ -47,25 +44,19 @@ int main(int argc, char *argv[]) {
                 break;
                 
             case 'u': {
-                printf("=== Ulimit ===\n");
-                if (current_ulimit != -1) {
-                    // Показываем значение, которое было установлено через -U
-                    printf("Ulimit (file size): %ld\n", current_ulimit);
+                printf("=== Ulimit (max processes) ===\n");
+                struct rlimit rlim;
+                if (getrlimit(RLIMIT_NPROC, &rlim) == 0) {
+                    printf("Ulimit (max processes): %ld\n", (long)rlim.rlim_cur);
                 } else {
-                    // Или получаем текущее значение из системы
-                    struct rlimit rlim;
-                    if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
-                        printf("Ulimit (file size): %ld\n", (long)rlim.rlim_cur);
-                        current_ulimit = (long)rlim.rlim_cur;
-                    } else {
-                        perror("getrlimit failed");
-                    }
+                    perror("getrlimit failed");
                 }
                 break;
             }
             
             case 'U': {
-                printf("=== Change Ulimit ===\n");
+                printf("=== Change Ulimit (max processes) ===\n");
+                struct rlimit rlim;
                 long new_limit = atol(optarg);
                 
                 if (new_limit < 0) {
@@ -73,12 +64,9 @@ int main(int argc, char *argv[]) {
                     break;
                 }
                 
-                struct rlimit rlim;
-                if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
+                if (getrlimit(RLIMIT_NPROC, &rlim) == 0) {
                     rlim.rlim_cur = (rlim_t)new_limit;
-                    if (setrlimit(RLIMIT_FSIZE, &rlim) == 0) {
-                        // Сохраняем новое значение в глобальной переменной
-                        current_ulimit = new_limit;
+                    if (setrlimit(RLIMIT_NPROC, &rlim) == 0) {
                         printf("Ulimit changed to: %ld\n", new_limit);
                     } else {
                         perror("setrlimit failed");
@@ -158,8 +146,8 @@ int main(int argc, char *argv[]) {
                 printf("  -i  Print user and group IDs\n");
                 printf("  -s  Become process group leader\n");
                 printf("  -p  Print process IDs\n");
-                printf("  -u  Print ulimit\n");
-                printf("  -U <value> Change ulimit\n");
+                printf("  -u  Print ulimit (max processes)\n");
+                printf("  -U <value> Change ulimit (max processes)\n");
                 printf("  -c  Print core file size\n");
                 printf("  -C <size> Change core file size\n");
                 printf("  -d  Print current directory\n");
