@@ -13,6 +13,11 @@ int buf;
 int main(int argc, char *argv[])
 {
     int fd = open(argv[1], O_RDONLY);
+    if (fd == -1)
+    {
+        perror("Error opening file.");
+        exit(1);
+    }
     offsets[0] = 0;
 
     int pos = 0;
