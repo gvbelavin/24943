@@ -7,24 +7,34 @@ struct Node {
     struct Node *next;
 };
 
-// Функция для удаления ESC-последовательностей
-void remove_esc_sequences(char *str) {
-    char *src = str;
-    char *dst = str;
-    
-    while (*src) {
-        if (*src == '\x1b') {  // Нашли ESC символ
-            // Пропускаем всё до следующей буквы
-            src++;
-            while (*src && (*src < 'A' || *src > 'Z') && (*src < 'a' || *src > 'z')) {
-                src++;
-            }
-            if (*src) src++; // Пропускаем букву
-        } else {
-            *dst++ = *src++;
+// Удаляем ESC-последовательности БЕЗ оставления пробелов
+void remove_escape_sequences(char *str) 
+{
+    int i = 0, j = 0;
+    while (str[i] != '\0') 
+    {
+        // Если нашли ESC символ (\x1b или 27)
+        if ((unsigned char)str[i] == '\x1B') 
+        {
+            // Пропускаем ESC и всю последовательность
+            i++; // пропускаем ESC
+            // Пропускаем все символы до буквы (A,B,C,D для стрелок)
+            while (str[i] != '\0' && str[i] != 'A' && str[i] != 'B' && 
+                   str[i] != 'C' && str[i] != 'D' && str[i] != '~') 
+                   {
+                    i++;
+                   }
+            if (str[i] != '\0') i++; // пропускаем последний символ (A,B,C,D,~)
+        } 
+        else 
+        {
+            // Копируем обычный символ
+            str[j] = str[i];
+            j++;
+            i++;
         }
     }
-    *dst = '\0';
+    str[j] = '\0';
 }
 
 int main() {
@@ -39,8 +49,8 @@ int main() {
     
         if (buffer[0] == '.') break;
         
-        // Удаляем ESC-последовательности
-        remove_esc_sequences(buffer);
+        // Удаляем ESC-последовательности вместо простой проверки
+        remove_escape_sequences(buffer);
         
         size_t len = strlen(buffer);
         if (len > 0 && buffer[len-1] == '\n') {
@@ -60,10 +70,11 @@ int main() {
 
         if (head == NULL) {
             head = new_node;
+            current = new_node;
         } else {
             current->next = new_node;
+            current = new_node;
         }
-        current = new_node;
     }
     
     printf("\nСписок строк:\n");
