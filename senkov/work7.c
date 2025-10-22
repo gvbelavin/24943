@@ -5,17 +5,39 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <signal.h>
 
 #define MAX_LINES 500
+#define BUFSZ 256
+
+int fd;  // Глобальная переменная для доступа из обработчика сигнала
+int first_input = 1;  // Флаг первого ввода
+char *file_data;      // Указатель на отображенный файл
+off_t file_size;      // Размер файла
+
+// Обработчик сигнала SIGALRM - печатает весь файл ИЗ ПАМЯТИ
+void timeout_handler(int sig) {
+    printf("\nTime's up! Printing entire file...\n");
+    
+    // Выводим весь файл ИЗ ПАМЯТИ (mmap)
+    if (file_data != NULL && file_size > 0) {
+        fwrite(file_data, 1, file_size, stdout);
+    }
+    
+    // Освобождение ресурсов
+    if (file_data != NULL) {
+        munmap(file_data, file_size);
+    }
+    close(fd);
+    exit(0);
+}
 
 int main(int argc, char **argv) {
-    int fd, line_count = 0;
-    off_t file_size;
-    char *file_data;
+    int line_count = 0;
     char *line_start[MAX_LINES];  // Указатели на начало строк
     int line_length[MAX_LINES];   // Длины строк
     
-    char input[256];
+    char input[BUFSZ];
     int line_no;
 
     // Проверка аргументов
@@ -50,6 +72,14 @@ int main(int argc, char **argv) {
     file_data = mmap(NULL, file_size, PROT_READ, MAP_SHARED, fd, 0);
     if (file_data == MAP_FAILED) {
         perror("mmap");
+        close(fd);
+        return 1;
+    }
+
+    // Установка обработчика сигнала SIGALRM
+    if (signal(SIGALRM, timeout_handler) == SIG_ERR) {
+        perror("signal");
+        munmap(file_data, file_size);
         close(fd);
         return 1;
     }
@@ -106,16 +136,47 @@ int main(int argc, char **argv) {
     }
     
     printf("=== End of Table ===\n\n");
+    printf("You have 5 seconds for FIRST input. Enter 0 to exit.\n");
 
     // Интерактивный цикл
     for (;;) {
         printf("Line number: ");
+        fflush(stdout);  // Сбросить буфер вывода
+        
+        // Установить таймер на 5 секунд ТОЛЬКО для первого ввода
+        if (first_input) {
+            alarm(5);
+        }
         
         if (fgets(input, sizeof(input), stdin) == NULL) {
+            alarm(0);  // Отключить таймер при выходе
             break;
         }
         
-        // Преобразование ввода в число
+        // Проверка на переполнение буфера (если ввод не содержит \n)
+        if (strchr(input, '\n') == NULL) {
+            // Буфер переполнен, очищаем остаток
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF);
+            fprintf(stderr, "Error: Input too long. Maximum %zu characters allowed.\n", sizeof(input) - 1);
+            continue;
+        }
+        
+        // Отключить таймер после успешного ввода
+        alarm(0);
+        
+        // Сбрасываем флаг первого ввода после успешного получения данных
+        if (first_input && input[0] != '\0') {
+            first_input = 0;
+            printf("First input received. No more time limits.\n");
+        }
+        
+        input[strcspn(input, "\n")] = '\0';
+        
+        if (input[0] == '\0') {
+            continue;
+        }
+        
         char *endptr;
         line_no = (int)strtol(input, &endptr, 10);
         
@@ -133,12 +194,8 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        // ВЫВОД СТРОКИ БЕЗ ИСПОЛЬЗОВАНИЯ write/fwrite - используем fwrite с отображенной памятью
-        // Это допустимо, так как fwrite работает с памятью, а не с файловыми дескрипторами
+        // Вывод строки используя отображение в память
         int idx = line_no - 1;
-        
-        // Альтернативный вариант - использовать puts или printf с ограничением длины
-        // Но fwrite - наиболее корректный для бинарных данных
         fwrite(line_start[idx], 1, line_length[idx], stdout);
         
         // Если строка не заканчивается на \n, добавляем его
@@ -147,6 +204,9 @@ int main(int argc, char **argv) {
         }
     }
 
+    // Отключить таймер перед нормальным выходом
+    alarm(0);
+    
     // Освобождение ресурсов
     munmap(file_data, file_size);
     close(fd);
