@@ -19,11 +19,20 @@ int main() {
     
         if (buffer[0] == '.') break;
         
+        // Простая проверка на стрелки - если есть символ ESC, пропускаем
+        if (strstr(buffer, "\x1b") != NULL) {
+            printf("(стрелка проигнорирована)\n");
+            continue;
+        }
+        
         size_t len = strlen(buffer);
         if (len > 0 && buffer[len-1] == '\n') {
             buffer[len-1] = '\0';
             len--;
         }
+        
+        // Пропускаем пустые строки
+        if (len == 0) continue;
         
         char *str = malloc(len + 1);
         strcpy(str, buffer);
@@ -34,10 +43,11 @@ int main() {
 
         if (head == NULL) {
             head = new_node;
+            current = new_node;
         } else {
             current->next = new_node;
+            current = new_node;
         }
-        current = new_node;
     }
     
     printf("\nСписок строк:\n");
