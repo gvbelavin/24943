@@ -10,10 +10,10 @@ int main() {
 
     (void) time(&now);
 
-    
-    if (setenv("TZ", "America/Los_Angeles", 1) != 0) {
+   
+    if (setenv("TZ", "PST8PDT", 1) != 0) {
         
-        putenv("TZ=America/Los_Angeles");
+        putenv("TZ=PST8PDT");
     }
     tzset(); 
 
@@ -22,7 +22,7 @@ int main() {
     sp = localtime(&now);
     printf("%d/%d/%02d %d:%02d %s\n",
            sp->tm_mon + 1, sp->tm_mday,
-           sp->tm_year - 100, sp->tm_hour-1,
+           sp->tm_year - 100, sp->tm_hour,
            sp->tm_min, tzname[sp->tm_isdst]);
 
     return 0;
