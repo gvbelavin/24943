@@ -3,37 +3,37 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
+#include <sys/types.h>
+#include <ulimit.h>
 
-// Добавляем глобальную переменную для запоминания ulimit
-static long custom_ulimit = -1;
+#define GET_FSLIM 1
+#define SET_FSLIM 2
 
 int main(int argc, char *argv[]) {
     int opt;
     extern char *optarg;
-    extern int optopt;  // Добавляем эту строку
-    
+    extern char **environ;
     
     if (argc == 1) {
         printf("No arguments provided. Use -h for help.\n");
         return 0;
     }
     
-    
     while ((opt = getopt(argc, argv, "ispucdvU:C:V:h")) != -1) {
         switch (opt) {
             case 'i':
                 printf("=== User and Group IDs ===\n");
-                printf("Real UID: %d\n", getuid());
-                printf("Effective UID: %d\n", geteuid());
-                printf("Real GID: %d\n", getgid());
-                printf("Effective GID: %d\n", getegid());
+                printf("Real UID: %ld\n", (long)getuid());
+                printf("Effective UID: %ld\n", (long)geteuid());
+                printf("Real GID: %ld\n", (long)getgid());
+                printf("Effective GID: %ld\n", (long)getegid());
                 break;
                 
             case 's':
                 printf("=== Process Group Leader ===\n");
                 if (setpgid(0, 0) == 0) {
                     printf("Became process group leader\n");
-                    printf("New process group: %d\n", getpgrp());
+                    printf("New process group: %ld\n", (long)getpgrp());
                 } else {
                     perror("setpgid failed");
                 }
@@ -41,57 +41,30 @@ int main(int argc, char *argv[]) {
                 
             case 'p':
                 printf("=== Process IDs ===\n");
-                printf("PID: %d\n", getpid());
-                printf("Parent PID: %d\n", getppid());
-                printf("Process group: %d\n", getpgrp());
+                printf("PID: %ld\n", (long)getpid());
+                printf("Parent PID: %ld\n", (long)getppid());
+                printf("Process group: %ld\n", (long)getpgrp());
                 break;
                 
-            case 'u': {
-                printf("=== Ulimit ===\n");
-                struct rlimit rlim;
-                if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
-                    // Если было установлено через -U, показываем это значение
-                    if (custom_ulimit != -1) {
-                        printf("Ulimit (file size): %ld\n", custom_ulimit);
-                    } else {
-                        printf("Ulimit (file size): %ld\n", rlim.rlim_cur);
-                    }
-                } else {
-                    perror("getrlimit failed");
-                }
+            case 'u':
+                printf("=== Ulimit (file size limit) ===\n");
+                printf("Ulimit (file size): %ld\n", ulimit(GET_FSLIM, 0));
                 break;
-            }
             
-            case 'U': {
-                printf("=== Change Ulimit ===\n");
-                struct rlimit rlim;
-                long new_limit = atol(optarg);
-                
-                if (new_limit < 0) {
-                    printf("Error: Invalid ulimit value: %s\n", optarg);
-                    break;
-                }
-                
-                if (getrlimit(RLIMIT_FSIZE, &rlim) == 0) {
-                    rlim.rlim_cur = new_limit;
-                    if (setrlimit(RLIMIT_FSIZE, &rlim) == 0) {
-                        // Запоминаем значение для показа в -u
-                        custom_ulimit = new_limit;
-                        printf("Ulimit changed to: %ld\n", new_limit);
-                    } else {
-                        perror("setrlimit failed");
-                    }
+            case 'U':
+                printf("=== Change Ulimit (file size limit) ===\n");
+                if (ulimit(SET_FSLIM, atol(optarg)) == -1) {
+                    fprintf(stderr, "Must be super-user to increase ulimit\n");
                 } else {
-                    perror("getrlimit failed");
+                    printf("Ulimit changed to: %s\n", optarg);
                 }
                 break;
-            }
-            
+                
             case 'c': {
                 printf("=== Core File Size ===\n");
                 struct rlimit rlim;
                 if (getrlimit(RLIMIT_CORE, &rlim) == 0) {
-                    printf("Core file size: %ld bytes\n", rlim.rlim_cur);
+                    printf("Core file size: %ld bytes\n", (long)rlim.rlim_cur);
                 } else {
                     perror("getrlimit core failed");
                 }
@@ -109,7 +82,7 @@ int main(int argc, char *argv[]) {
                 }
                 
                 if (getrlimit(RLIMIT_CORE, &rlim) == 0) {
-                    rlim.rlim_cur = new_size;
+                    rlim.rlim_cur = (rlim_t)new_size;
                     if (setrlimit(RLIMIT_CORE, &rlim) == 0) {
                         printf("Core file size changed to: %ld bytes\n", new_size);
                     } else {
@@ -123,9 +96,10 @@ int main(int argc, char *argv[]) {
             
             case 'd': {
                 printf("=== Current Directory ===\n");
-                char cwd[1024];
-                if (getcwd(cwd, sizeof(cwd))) {
+                char *cwd = getcwd(NULL, 0);
+                if (cwd) {
                     printf("Current directory: %s\n", cwd);
+                    free(cwd);
                 } else {
                     perror("getcwd failed");
                 }
@@ -134,7 +108,6 @@ int main(int argc, char *argv[]) {
             
             case 'v':
                 printf("=== Environment Variables ===\n");
-                extern char **environ;
                 for (char **env = environ; *env; env++) {
                     printf("%s\n", *env);
                 }
@@ -156,8 +129,8 @@ int main(int argc, char *argv[]) {
                 printf("  -i  Print user and group IDs\n");
                 printf("  -s  Become process group leader\n");
                 printf("  -p  Print process IDs\n");
-                printf("  -u  Print ulimit\n");
-                printf("  -U <value> Change ulimit\n");
+                printf("  -u  Print ulimit (file size limit)\n");
+                printf("  -U <value> Change ulimit (file size limit)\n");
                 printf("  -c  Print core file size\n");
                 printf("  -C <size> Change core file size\n");
                 printf("  -d  Print current directory\n");
@@ -166,8 +139,8 @@ int main(int argc, char *argv[]) {
                 printf("  -h  This help message\n");
                 break;
             
-            case '?':
-                fprintf(stderr, "Error: Unknown option: -%c\n", optopt);
+            default:
+                fprintf(stderr, "Error: Unknown option\n");
                 fprintf(stderr, "Use -h for help\n");
                 break;
         }
