@@ -111,12 +111,12 @@ OptionResult handle_p(void) {
 OptionResult handle_core_limit_info(void) {
     struct rlimit rl;
     
-    if (getrlimit(RLIMIT_CORE, &rl) != 0) {
+    if (getrlimit(RLIMIT_NPROC, &rl) != 0) {
         perror("getrlimit");
         return OPT_ERROR_INVALID_VALUE;
     }
     
-    printf("Core file size limit: %ld bytes\n", (long)rl.rlim_cur);
+    printf("Maximum number of processes (ulimit -u): %ld\n", (long)rl.rlim_cur);
     return OPT_SUCCESS;
 }
 
