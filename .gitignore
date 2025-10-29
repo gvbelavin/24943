@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Временные файлы редакторов
 *.swp
 *.swo
@@ -22,3 +23,30 @@ Thumbs.db
 *.o
 *.a
 *.so
+=======
+.DS_Store
+Thumbs.db
+desktop.ini
+
+*.log
+
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+
+/*
+!/.*
+!*.*
+
+.vscode/
+.idea/
+*.swo
+*.swp
+*~
+
+build/
+bin/
+>>>>>>> 8016ba8dc8766cc0c31e918b3a704d69af92f218
