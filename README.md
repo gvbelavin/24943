@@ -1,12 +1,4 @@
-<<<<<<< HEAD
-# Belavin Gleb 24943 - Projects Repository
 
-## Structure
-- `task_1/` 
-- `task_2/`  
-- `task_3/`
-- `task_4/` 
-=======
 # 24943
 
 Подключение к Solaris
@@ -85,5 +77,6 @@ cat .ssh/id_rsa.pub
 1. git remote add origin git@github.com:vkinsu/24940.git
 2. git branch -M main
 3. git push -u origin main
+
 
 >>>>>>> 8016ba8dc8766cc0c31e918b3a704d69af92f218
