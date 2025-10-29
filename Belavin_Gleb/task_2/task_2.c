@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
+#include <string.h>
 
 int main() {
     time_t now;
@@ -8,7 +9,7 @@ int main() {
     
     time(&now);
 
-    setenv("TZ", "PST8PDT", 1);
+    setenv("TZ", "US/Pacific", 1);
     tzset();
 
     pst_time = localtime(&now);
