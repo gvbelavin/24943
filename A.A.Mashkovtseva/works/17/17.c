@@ -67,9 +67,10 @@ int main() {
 
         if (pos >= LINESIZE && !isspace(ch)) {
             savepos = pos;
+            newpos = 0;
             while (pos > 0 && !isspace(buffer[pos - 1])) pos--;
             if (pos > 0) {
-                newpos = pos;
+                
                 for (int i = pos; i < savepos; i++) {
                     BACKSPACE(fd);
                     buffer[newpos++] = buffer[i];
