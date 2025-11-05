@@ -14,7 +14,6 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    // Выводим информацию о том, что будем запускать
     printf("Executing: ");
     for (i = 1; i < argc; i++) {
         printf("%s ", argv[i]);
@@ -29,10 +28,9 @@ int main(int argc, char *argv[]) {
     }
 
     if (pid == 0) {
-        // Подпроцесс - выполняем команду
         execvp(argv[1], &argv[1]);
         perror("execvp failed");
-        exit(127); // Стандартный код для "command not found"
+        exit(127); 
     } else {
         // Родитель - ждем завершения
         waitpid(pid, &status, 0);
