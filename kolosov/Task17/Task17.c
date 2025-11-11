@@ -55,8 +55,17 @@ int main() {
                     write(1, "\b \b", 3);
                     len--; col--;
                 }
+            }    
+        }
+        else if (c == 27) {
+            write(1, "\7", 1); 
+            char x;
+            while (read(0, &x, 1) == 1) {
+                if ((x >= 'A' && x <= 'Z') || x == '~')
+            break;
             }
-        } else if (c >= 32 && c < 127) {
+        }
+        else if (c >= 32 && c < 127) {
             if (len < 79) {
                 buf[len++] = c;
                 write(1, &c, 1);
