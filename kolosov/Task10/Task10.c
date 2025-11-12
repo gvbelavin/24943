@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
     int status;
 
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s command [args...]\n", argv[0]);
+        fprintf(stderr, "%s : no args...\n", argv[0]);
         return 1;
     }
 
