@@ -1,116 +1,132 @@
-#include <ncurses.h>
-#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <termios.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/ioctl.h>
 
 #define MAX_COLS 40
 
+static struct termios original_settings;
+
+/* Восстановить оригинальные настройки терминала при выходе */
+void restore_terminal(void)
+{
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_settings);
+}
+
 int main(void)
 {
+    struct termios new_settings;
     int ch;
     char line[MAX_COLS + 1];
-    int len = 0;
-    int col = 0;
+    int len = 0;       /* количество символов в буфере */
+    int col = 0;       /* текущая колонка (0..39) */
 
-    initscr();
-    cbreak();
-    noecho();
-    keypad(stdscr, TRUE);   // ВАЖНО: чтобы getch() возвращал KEY_BACKSPACE
+    /* Получить текущие настройки терминала */
+    tcgetattr(STDIN_FILENO, &original_settings);
+    new_settings = original_settings;
 
-    int ctrl_d   = 4;
-    int ctrl_w   = 23;
-    int bell     = 7;
-    int erase1   = 127;     // DEL
-    int erase2   = 8;       // BS
-    int kill_char = 21;     // Ctrl-U
+    /* Сохранить восстановление при выходе */
+    atexit(restore_terminal);
+
+    /* Установить режим: без эхо, неканонический */
+    new_settings.c_lflag &= ~(ECHO | ICANON);
+    new_settings.c_cc[VMIN] = 1;   /* читать по одному символу */
+    new_settings.c_cc[VTIME] = 0;  /* без таймаута */
+
+    /* Получить управляющие коды из оригинальных настроек */
+    int erase_char = original_settings.c_cc[VERASE];  /* Backspace, обычно 127 */
+    int kill_char = original_settings.c_cc[VKILL];    /* Ctrl-U, обычно 21 */
+    int eof_char = original_settings.c_cc[VEOF];      /* Ctrl-D, обычно 4 */
+
+    int ctrl_w = 23;    /* Ctrl-W (не стандартный, определяем сами) */
+    int bell = 7;       /* BEL - звуковой сигнал */
+
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &new_settings);
 
     memset(line, 0, sizeof(line));
 
     while (1) {
-        ch = getch();
-
-        if (ch == ctrl_d && len == 0) {
-            addch('\n');
-            refresh();
+        unsigned char c;
+        if (read(STDIN_FILENO, &c, 1) != 1)
             break;
-        }
 
-        /* KILL (^U) */
-        if (ch == kill_char) {
-            while (len > 0) {
-                move(getcury(stdscr), getcurx(stdscr) - 1);
-                delch();
-                len--;
-                if (col > 0) col--;
-            }
-            refresh();
-            continue;
-        }
+        ch = (int)c;
 
-        /* ERASE: Backspace/Delete/KEY_BACKSPACE */
-        if (ch == erase1 || ch == erase2 || ch == KEY_BACKSPACE) {
-            if (len > 0) {
-                move(getcury(stdscr), getcurx(stdscr) - 1);
-                delch();
-                len--;
-                if (col > 0) col--;
-            } else {
-                addch(bell);
-            }
-            refresh();
-            continue;
-        }
+        switch (ch) {
+            case 4:  /* Ctrl-D (EOF) */
+                if (len == 0) {
+                    write(STDOUT_FILENO, "\n", 1);
+                    goto end;  /* Выход из цикла */
+                }
+                break;
 
-        /* CTRL-W */
-        if (ch == ctrl_w) {
-            if (len == 0) {
-                addch(bell);
-                refresh();
-                continue;
-            }
+            case 21:  /* Ctrl-U (KILL) */
+                while (len > 0) {
+                    write(STDOUT_FILENO, "\b \b", 3);
+                    len--;
+                    if (col > 0) col--;
+                }
+                break;
 
-            while (len > 0 && isspace((unsigned char)line[len - 1])) {
-                move(getcury(stdscr), getcurx(stdscr) - 1);
-                delch();
-                len--;
-                if (col > 0) col--;
-            }
+            case 8:   /* BS (Backspace) */
+            case 127: /* DEL */
+                if (len > 0) {
+                    write(STDOUT_FILENO, "\b \b", 3);
+                    len--;
+                    if (col > 0) col--;
+                } else {
+                    write(STDOUT_FILENO, (char[]){bell}, 1);
+                }
+                break;
 
-            while (len > 0 && !isspace((unsigned char)line[len - 1])) {
-                move(getcury(stdscr), getcurx(stdscr) - 1);
-                delch();
-                len--;
-                if (col > 0) col--;
-            }
+            case 23:  /* Ctrl-W (удалить слово) */
+                if (len == 0) {
+                    write(STDOUT_FILENO, (char[]){bell}, 1);
+                } else {
+                    /* Удаляем пробелы в конце */
+                    while (len > 0 && isspace((unsigned char)line[len - 1])) {
+                        write(STDOUT_FILENO, "\b \b", 3);
+                        len--;
+                        if (col > 0) col--;
+                    }
+                    /* Удаляем символы слова */
+                    while (len > 0 && !isspace((unsigned char)line[len - 1])) {
+                        write(STDOUT_FILENO, "\b \b", 3);
+                        len--;
+                        if (col > 0) col--;
+                    }
+                }
+                break;
 
-            refresh();
-            continue;
-        }
+            default:
+                /* Печатаемые символы */
+                if (isprint(ch) || ch == ' ' || ch == '\t') {
+                    /* Ограничение 40 столбцов */
+                    if (col >= MAX_COLS) {
+                        write(STDOUT_FILENO, "\n", 1);
+                        col = 0;
+                        len = 0;
+                        memset(line, 0, sizeof(line));
+                    }
 
-        /* Печатаемые */
-        if (isprint(ch) || ch == ' ' || ch == '\t') {
-            if (col >= MAX_COLS) {
-                addch('\n');
-                col = 0;
-                len = 0;
-                memset(line, 0, sizeof(line));
-            }
+                    if (len < MAX_COLS) {
+                        line[len++] = (char)ch;
+                    }
 
-            if (len < MAX_COLS) {
-                line[len++] = (char)ch;
-            }
-            addch(ch);
-            col++;
-            refresh();
-            continue;
-        }
-
-        /* Остальные непечатаемые -> BEL */
-        if (ch != ctrl_d && ch != ctrl_w && ch != kill_char) {
-            addch(bell);
-            refresh();
+                    write(STDOUT_FILENO, (char[]){(char)ch}, 1);
+                    col++;
+                } else {
+                    /* Непечатаемые (не наши управляющие) -> звуковой сигнал */
+                    write(STDOUT_FILENO, (char[]){bell}, 1);
+                }
+                break;
         }
     }
 
-    endwin();
+end:
     return 0;
 }
