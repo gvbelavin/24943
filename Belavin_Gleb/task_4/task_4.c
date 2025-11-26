@@ -71,7 +71,7 @@ int main() {
     
     printf("Введите строки (для завершения введите '.' в начале строки):\n");
     
-    while (true) {
+    while (1) {
         if (fgets(buffer, MAX_LINE_LENGTH, stdin) == NULL) break;
         if (buffer[0] == '.') break;
         append_node(&head, &tail, buffer);
