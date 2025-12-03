@@ -6,12 +6,12 @@ volatile sig_atomic_t count = 0;
 
 void sigint_handler(int s) {
     count++;
-    write(STDOUT_FILENO, "\a", 1);   // звуковой сигнал
+    write(STDOUT_FILENO, "\a", 1);   
 }
 
 void sigquit_handler(int s) {
     printf("\nСигналов SIGINT: %d\n", count);
-    _exit(0);                        // быстрый выход из обработчика
+    _exit(0);                       
 }
 
 int main(void) {
@@ -21,7 +21,7 @@ int main(void) {
     printf("CTRL-C: beep, CTRL-\\\\: exit\n");
 
     while (1)
-        pause();                    // ждём сигналы
+        pause();                
 
     return 0;
 }

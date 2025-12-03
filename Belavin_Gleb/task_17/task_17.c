@@ -4,14 +4,11 @@
 #include <ctype.h>
 #include <termios.h>
 #include <unistd.h>
-#include <signal.h>
-#include <sys/ioctl.h>
 
 #define MAX_COLS 40
 
 static struct termios original_settings;
 
-/* Восстановить оригинальные настройки терминала при выходе */
 void restore_terminal(void)
 {
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_settings);
@@ -22,111 +19,93 @@ int main(void)
     struct termios new_settings;
     int ch;
     char line[MAX_COLS + 1];
-    int len = 0;       /* количество символов в буфере */
-    int col = 0;       /* текущая колонка (0..39) */
+    int len = 0;
+    int col = 0;
 
-    /* Получить текущие настройки терминала */
-    tcgetattr(STDIN_FILENO, &original_settings);
+    if (tcgetattr(STDIN_FILENO, &original_settings) == -1)
+        return 1;
+
     new_settings = original_settings;
 
-    /* Сохранить восстановление при выходе */
-    atexit(restore_terminal);
+    if (atexit(restore_terminal) != 0)
+        return 1;
 
-    /* Установить режим: без эхо, неканонический */
     new_settings.c_lflag &= ~(ECHO | ICANON);
-    new_settings.c_cc[VMIN] = 1;   /* читать по одному символу */
-    new_settings.c_cc[VTIME] = 0;  /* без таймаута */
+    new_settings.c_cc[VMIN]  = 1;
+    new_settings.c_cc[VTIME] = 0;
 
-    /* Получить управляющие коды из оригинальных настроек */
-    int erase_char = original_settings.c_cc[VERASE];  /* Backspace, обычно 127 */
-    int kill_char = original_settings.c_cc[VKILL];    /* Ctrl-U, обычно 21 */
-    int eof_char = original_settings.c_cc[VEOF];      /* Ctrl-D, обычно 4 */
+    int bell = 7;
 
-    int ctrl_w = 23;    /* Ctrl-W (не стандартный, определяем сами) */
-    int bell = 7;       /* BEL - звуковой сигнал */
-
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &new_settings);
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &new_settings) == -1)
+        return 1;
 
     memset(line, 0, sizeof(line));
 
     while (1) {
         unsigned char c;
+
         if (read(STDIN_FILENO, &c, 1) != 1)
             break;
 
         ch = (int)c;
 
-        switch (ch) {
-            case 4:  /* Ctrl-D (EOF) */
-                if (len == 0) {
+        if (ch == 4) {
+            if (len == 0) {
+                write(STDOUT_FILENO, "\n", 1);
+                break;
+            }
+        } else if (ch == 21) {
+            while (len > 0) {
+                write(STDOUT_FILENO, "\b \b", 3);
+                len--;
+                if (col > 0)
+                    col--;
+            }
+        } else if (ch == 8 || ch == 127) {
+            if (len > 0) {
+                write(STDOUT_FILENO, "\b \b", 3);
+                len--;
+                if (col > 0)
+                    col--;
+            } else {
+                write(STDOUT_FILENO, (char[]){bell}, 1);
+            }
+        } else if (ch == 23) {
+            if (len == 0) {
+                write(STDOUT_FILENO, (char[]){bell}, 1);
+            } else {
+                while (len > 0 && isspace((unsigned char)line[len - 1])) {
+                    write(STDOUT_FILENO, "\b \b", 3);
+                    len--;
+                    if (col > 0)
+                        col--;
+                }
+                while (len > 0 && !isspace((unsigned char)line[len - 1])) {
+                    write(STDOUT_FILENO, "\b \b", 3);
+                    len--;
+                    if (col > 0)
+                        col--;
+                }
+            }
+        } else {
+            if (isprint(ch) || ch == ' ' || ch == '\t') {
+                if (col >= MAX_COLS) {
                     write(STDOUT_FILENO, "\n", 1);
-                    goto end;  /* Выход из цикла */
+                    col = 0;
+                    len = 0;
+                    memset(line, 0, sizeof(line));
                 }
-                break;
 
-            case 21:  /* Ctrl-U (KILL) */
-                while (len > 0) {
-                    write(STDOUT_FILENO, "\b \b", 3);
-                    len--;
-                    if (col > 0) col--;
-                }
-                break;
+                if (len < MAX_COLS)
+                    line[len++] = (char)ch;
 
-            case 8:   /* BS (Backspace) */
-            case 127: /* DEL */
-                if (len > 0) {
-                    write(STDOUT_FILENO, "\b \b", 3);
-                    len--;
-                    if (col > 0) col--;
-                } else {
-                    write(STDOUT_FILENO, (char[]){bell}, 1);
-                }
-                break;
-
-            case 23:  /* Ctrl-W (удалить слово) */
-                if (len == 0) {
-                    write(STDOUT_FILENO, (char[]){bell}, 1);
-                } else {
-                    /* Удаляем пробелы в конце */
-                    while (len > 0 && isspace((unsigned char)line[len - 1])) {
-                        write(STDOUT_FILENO, "\b \b", 3);
-                        len--;
-                        if (col > 0) col--;
-                    }
-                    /* Удаляем символы слова */
-                    while (len > 0 && !isspace((unsigned char)line[len - 1])) {
-                        write(STDOUT_FILENO, "\b \b", 3);
-                        len--;
-                        if (col > 0) col--;
-                    }
-                }
-                break;
-
-            default:
-                /* Печатаемые символы */
-                if (isprint(ch) || ch == ' ' || ch == '\t') {
-                    /* Ограничение 40 столбцов */
-                    if (col >= MAX_COLS) {
-                        write(STDOUT_FILENO, "\n", 1);
-                        col = 0;
-                        len = 0;
-                        memset(line, 0, sizeof(line));
-                    }
-
-                    if (len < MAX_COLS) {
-                        line[len++] = (char)ch;
-                    }
-
-                    write(STDOUT_FILENO, (char[]){(char)ch}, 1);
-                    col++;
-                } else {
-                    /* Непечатаемые (не наши управляющие) -> звуковой сигнал */
-                    write(STDOUT_FILENO, (char[]){bell}, 1);
-                }
-                break;
+                write(STDOUT_FILENO, (char[]){(char)ch}, 1);
+                col++;
+            } else {
+                write(STDOUT_FILENO, (char[]){bell}, 1);
+            }
         }
     }
 
-end:
     return 0;
 }

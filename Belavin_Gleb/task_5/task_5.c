@@ -9,8 +9,8 @@
 #define BUFFER_SIZE 1024
 
 typedef struct {
-    off_t  offset;   // позиция начала строки в файле
-    size_t length;   // длина строки (без '\n')
+    off_t  offset;  
+    size_t length;   
 } line_info_t;
 
 int main(int argc, char *argv[]) {
@@ -32,7 +32,6 @@ int main(int argc, char *argv[]) {
     char  buffer[BUFFER_SIZE];
     ssize_t bytes_read;
 
-    // Читаем файл и строим таблицу строк
     while ((bytes_read = read(fd, buffer, sizeof(buffer))) > 0) {
         for (ssize_t i = 0; i < bytes_read; i++) {
             if (buffer[i] == '\n') {
@@ -53,14 +52,12 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Последняя строка без '\n'
     if (line_start < current_off && line_count < MAX_LINES) {
         lines[line_count].offset = line_start;
         lines[line_count].length = current_off - line_start;
         line_count++;
     }
 
-    // Таблица строк (для отладки)
     printf("\nLine table for file '%s':\n", argv[1]);
     printf("Line#\tOffset\tLength\n");
     printf("-----\t------\t------\n");
@@ -72,7 +69,6 @@ int main(int argc, char *argv[]) {
     }
     printf("Total lines: %d\n\n", line_count);
 
-    // Основной цикл запросов
     while (1) {
         char input[64];
         int  line_number;

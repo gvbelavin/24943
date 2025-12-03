@@ -12,8 +12,8 @@
 #define MAX_LINES   1000
 
 typedef struct {
-    off_t  offset;   // позиция начала строки в файле
-    size_t length;   // длина строки (без '\n')
+    off_t  offset;  
+    size_t length;   
 } line_info_t;
 
 int main(int argc, char *argv[]) {

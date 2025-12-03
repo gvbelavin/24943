@@ -11,8 +11,8 @@
 #define BUFFER_SIZE 1024
 
 typedef struct {
-    off_t  offset;   // позиция начала строки в файле
-    size_t length;   // длина строки (без '\n')
+    off_t  offset;   
+    size_t length;   
 } line_info_t;
 
 int main(int argc, char *argv[]) {
@@ -34,7 +34,6 @@ int main(int argc, char *argv[]) {
     char  buffer[BUFFER_SIZE];
     ssize_t bytes_read;
 
-    // Читаем файл и строим таблицу строк
     while ((bytes_read = read(fd, buffer, sizeof(buffer))) > 0) {
         for (ssize_t i = 0; i < bytes_read; i++) {
             if (buffer[i] == '\n') {
@@ -55,14 +54,12 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Последняя строка без '\n'
     if (line_start < current_off && line_count < MAX_LINES) {
         lines[line_count].offset = line_start;
         lines[line_count].length = current_off - line_start;
         line_count++;
     }
 
-    // Таблица строк (для отладки)
     printf("\nLine table for file '%s':\n", argv[1]);
     printf("Line#\tOffset\tLength\n");
     printf("-----\t------\t------\n");
@@ -74,7 +71,6 @@ int main(int argc, char *argv[]) {
     }
     printf("Total lines: %d\n\n", line_count);
 
-    // Основной цикл запросов
     while (1) {
         char input[64];
         int  line_number;
@@ -82,7 +78,6 @@ int main(int argc, char *argv[]) {
         printf("Enter line number (0 to exit) [5 seconds timeout]: ");
         fflush(stdout);
 
-        // Ожидание ввода с таймаутом 5 секунд
         fd_set rfds;
         FD_ZERO(&rfds);
         FD_SET(STDIN_FILENO, &rfds);
@@ -96,7 +91,6 @@ int main(int argc, char *argv[]) {
             perror("select");
             break;
         } else if (ret == 0) {
-            // Таймаут — запускаем cat как дочерний процесс и выходим
             printf("\nTimeout (5 seconds). Running cat and exiting.\n\n");
 
             pid_t pid = fork();
@@ -104,20 +98,16 @@ int main(int argc, char *argv[]) {
                 perror("fork");
                 break;
             } else if (pid == 0) {
-                // Дочерний процесс: запускаем cat, не хардкодя путь
                 execlp("cat", "cat", argv[1], (char *)NULL);
-                // Если мы здесь — execlp не сработал
                 perror("execlp");
                 _exit(1);
             } else {
-                // Родитель ждёт завершения cat и завершает программу
                 int status;
                 waitpid(pid, &status, 0);
                 break;
             }
         }
 
-        // Ввод успели сделать — продолжаем как в предыдущей задаче
         if (!fgets(input, sizeof(input), stdin)) {
             printf("\nProcess_end (EOF)\n");
             break;
