@@ -9,5 +9,6 @@
 - `task_9`
 - `task_10`
 - `task_17`
+- `task_18`
 - `task_21`
 - `task_25`
