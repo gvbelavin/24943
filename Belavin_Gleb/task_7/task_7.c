@@ -4,23 +4,57 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/stat.h>
+#include <signal.h>
 #include <sys/mman.h>
-#include <sys/select.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 
 #define MAX_LINES   1000
+#define BUFFER_SIZE 1024
+#define TIMEOUT     5
 
 typedef struct {
     off_t  offset;  
     size_t length;   
 } line_info_t;
 
+volatile sig_atomic_t timeout_occurred = 0;
+char *filename_global = NULL;
+
+void alarm_handler(int sig) {
+    timeout_occurred = 1;
+}
+
+void print_entire_file(const char *filename) {
+    printf("\nTimeout: no input within %d seconds.\n", TIMEOUT);
+    printf("========================================\n");
+    fflush(stdout);
+    
+    pid_t pid = fork();
+    
+    if (pid == -1) {
+        perror("fork");
+        return;
+    }
+    
+    if (pid == 0) {
+        execlp("cat", "cat", filename, (char *)NULL);
+        perror("execlp cat");
+        exit(1);
+    } else {
+        int status;
+        waitpid(pid, &status, 0);
+        printf("========================================\n");
+    }
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
         return 1;
     }
+
+    filename_global = argv[1];
 
     int fd = open(argv[1], O_RDONLY);
     if (fd == -1) {
@@ -35,27 +69,22 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (st.st_size == 0) {
-        printf("File is empty\n");
-        close(fd);
-        return 0;
-    }
+    size_t file_size = st.st_size;
 
-    // Отображаем файл в память
-    char *data = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (data == MAP_FAILED) {
+    // Отображение файла в память
+    char *mapped_mem = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (mapped_mem == MAP_FAILED) {
         perror("mmap");
         close(fd);
         return 1;
     }
 
     line_info_t lines[MAX_LINES];
-    int   line_count  = 0;
-    off_t line_start  = 0;
+    int line_count = 0;
+    off_t line_start = 0;
 
-    // Строим таблицу строк, проходя по отображённому файлу
-    for (off_t i = 0; i < st.st_size; i++) {
-        if (data[i] == '\n') {
+    for (off_t i = 0; i < file_size; i++) {
+        if (mapped_mem[i] == '\n') {
             if (line_count < MAX_LINES) {
                 lines[line_count].offset = line_start;
                 lines[line_count].length = i - line_start;
@@ -65,14 +94,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Последняя строка без '\n'
-    if (line_start < st.st_size && line_count < MAX_LINES) {
+    if (line_start < file_size && line_count < MAX_LINES) {
         lines[line_count].offset = line_start;
-        lines[line_count].length = st.st_size - line_start;
+        lines[line_count].length = file_size - line_start;
         line_count++;
     }
 
-    // Таблица строк (для отладки)
     printf("\nLine table for file '%s':\n", argv[1]);
     printf("Line#\tOffset\tLength\n");
     printf("-----\t------\t------\n");
@@ -84,50 +111,54 @@ int main(int argc, char *argv[]) {
     }
     printf("Total lines: %d\n\n", line_count);
 
-    // Основной цикл запросов
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = alarm_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    
+    if (sigaction(SIGALRM, &sa, NULL) == -1) {
+        perror("sigaction");
+        munmap(mapped_mem, file_size);
+        close(fd);
+        return 1;
+    }
+
+    int input_received = 0;
+    
     while (1) {
         char input[64];
-        int  line_number;
+        int line_number;
 
-        printf("Enter line number (0 to exit) [5 seconds timeout]: ");
-        fflush(stdout);
-
-        // Ожидание ввода с таймаутом 5 секунд
-        fd_set rfds;
-        FD_ZERO(&rfds);
-        FD_SET(STDIN_FILENO, &rfds);
-
-        struct timeval tv;
-        tv.tv_sec  = 5;
-        tv.tv_usec = 0;
-
-        int ret = select(STDIN_FILENO + 1, &rfds, NULL, NULL, &tv);
-        if (ret == -1) {
-            perror("select");
-            break;
-        } else if (ret == 0) {
-            // Таймаут — запускаем cat как дочерний процесс и выходим
-            printf("\nTimeout (5 seconds). Running cat and exiting.\n\n");
-
-            pid_t pid = fork();
-            if (pid == -1) {
-                perror("fork");
-                break;
-            } else if (pid == 0) {
-                execlp("cat", "cat", argv[1], (char *)NULL);
-                perror("execlp");
-                _exit(1);
-            } else {
-                int status;
-                waitpid(pid, &status, 0);
-                break;
-            }
+        // Если пользоватль уже вводил данные, таймаут не применяется
+        if (!input_received) {
+            timeout_occurred = 0;
+            alarm(TIMEOUT);
         }
 
-        // Ввод успели сделать — продолжаем как в предыдущей задаче
+        printf("Enter line number (0 to exit): ");
+        fflush(stdout);
+
         if (!fgets(input, sizeof(input), stdin)) {
+            alarm(0);
+            if (timeout_occurred && !input_received) {
+                print_entire_file(filename_global);
+                break;
+            }
             printf("\nProcess_end (EOF)\n");
             break;
+        }
+
+        // Ввод получен
+        if (!input_received) {
+            alarm(0);
+            
+            if (timeout_occurred) {
+                print_entire_file(filename_global);
+                break;
+            }
+            
+            input_received = 1;  // Отмечаем, что пользователь начал вводить данные
         }
 
         input[strcspn(input, "\n")] = '\0';
@@ -152,14 +183,13 @@ int main(int argc, char *argv[]) {
 
         line_info_t *line = &lines[line_number - 1];
 
-        // Печатаем строку напрямую из отображённой памяти
-        printf("Line %d: %.*s\n",
-               line_number,
-               (int)line->length,
-               data + line->offset);
+        printf("Line %d: ", line_number);
+        fwrite(mapped_mem + line->offset, 1, line->length, stdout);
+        printf("\n");
     }
 
-    munmap(data, st.st_size);
+    alarm(0);
+    munmap(mapped_mem, file_size);  // Освобождение отображенной памяти
     close(fd);
     return 0;
 }

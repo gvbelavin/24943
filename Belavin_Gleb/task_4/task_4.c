@@ -34,7 +34,6 @@ void append_node(Node **head, Node **tail, const char *str) {
     if (new_node == NULL) return;
     
     if (*head == NULL) {
-        /* Список пуст */
         *head = new_node;
         *tail = new_node;
     } else {

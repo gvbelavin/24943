@@ -4,22 +4,55 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/select.h>
+#include <signal.h>
 #include <sys/wait.h>
 
 #define MAX_LINES   1000
 #define BUFFER_SIZE 1024
+#define TIMEOUT     5
 
 typedef struct {
-    off_t  offset;   
+    off_t  offset;  
     size_t length;   
 } line_info_t;
+
+volatile sig_atomic_t timeout_occurred = 0;
+char *filename_global = NULL;
+
+void alarm_handler(int sig) {
+    timeout_occurred = 1;
+}
+
+void print_entire_file(const char *filename) {
+    printf("\nTimeout: no input within %d seconds.\n", TIMEOUT);
+    printf("========================================\n");
+    fflush(stdout);
+    
+    pid_t pid = fork();
+    
+    if (pid == -1) {
+        perror("fork");
+        return;
+    }
+    
+    if (pid == 0) {
+        execlp("cat", "cat", filename, (char *)NULL);
+        perror("execlp cat");
+        exit(1);
+    } else {
+        int status;
+        waitpid(pid, &status, 0);
+        printf("========================================\n");
+    }
+}
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
         return 1;
     }
+
+    filename_global = argv[1];
 
     int fd = open(argv[1], O_RDONLY);
     if (fd == -1) {
@@ -34,6 +67,7 @@ int main(int argc, char *argv[]) {
     char  buffer[BUFFER_SIZE];
     ssize_t bytes_read;
 
+    // таблица строк
     while ((bytes_read = read(fd, buffer, sizeof(buffer))) > 0) {
         for (ssize_t i = 0; i < bytes_read; i++) {
             if (buffer[i] == '\n') {
@@ -71,46 +105,51 @@ int main(int argc, char *argv[]) {
     }
     printf("Total lines: %d\n\n", line_count);
 
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = alarm_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    
+    if (sigaction(SIGALRM, &sa, NULL) == -1) {
+        perror("sigaction");
+        close(fd);
+        return 1;
+    }
+    int input_received = 0;
+    
     while (1) {
         char input[64];
         int  line_number;
 
-        printf("Enter line number (0 to exit) [5 seconds timeout]: ");
-        fflush(stdout);
-
-        fd_set rfds;
-        FD_ZERO(&rfds);
-        FD_SET(STDIN_FILENO, &rfds);
-
-        struct timeval tv;
-        tv.tv_sec  = 5;
-        tv.tv_usec = 0;
-
-        int ret = select(STDIN_FILENO + 1, &rfds, NULL, NULL, &tv);
-        if (ret == -1) {
-            perror("select");
-            break;
-        } else if (ret == 0) {
-            printf("\nTimeout (5 seconds). Running cat and exiting.\n\n");
-
-            pid_t pid = fork();
-            if (pid == -1) {
-                perror("fork");
-                break;
-            } else if (pid == 0) {
-                execlp("cat", "cat", argv[1], (char *)NULL);
-                perror("execlp");
-                _exit(1);
-            } else {
-                int status;
-                waitpid(pid, &status, 0);
-                break;
-            }
+        if (!input_received) {
+            timeout_occurred = 0;
+            alarm(TIMEOUT);
         }
 
+        printf("Enter line number (0 to exit): ");
+        fflush(stdout);
+
         if (!fgets(input, sizeof(input), stdin)) {
+            alarm(0);
+            if (timeout_occurred && !input_received) {
+                print_entire_file(filename_global);
+                break;
+            }
             printf("\nProcess_end (EOF)\n");
             break;
+        }
+
+        // Ввод получен
+        if (!input_received) {
+            alarm(0);  // Отменяем таймер
+
+            if (timeout_occurred) {
+                print_entire_file(filename_global);
+                break;
+            }
+            
+            input_received = 1; 
         }
 
         input[strcspn(input, "\n")] = '\0';
@@ -155,6 +194,7 @@ int main(int argc, char *argv[]) {
         printf("Line %d: %s\n", line_number, line_buffer);
     }
 
+    alarm(0);
     close(fd);
     return 0;
 }
