@@ -7,7 +7,7 @@
 #include <sys/un.h>
 #include <poll.h>
 
-#define SOCKET_PATH "/tmp/my_socket"
+#define SOCKET_PATH "./my_socket"
 #define BUF_SIZE 256
 #define MAX_CLIENTS 10
 
