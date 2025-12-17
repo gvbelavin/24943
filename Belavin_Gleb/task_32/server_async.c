@@ -9,7 +9,7 @@
 #include <sys/un.h>
 #include <stropts.h>
 
-#define SOCKET_PATH "/tmp/my_socket"
+#define SOCKET_PATH "./my_socket"
 #define BUF_SIZE 256
 #define MAX_CLIENTS 10
 
@@ -28,7 +28,7 @@ void process_io(int sig) {
     client_fd = accept(server_fd, NULL, NULL);
     if (client_fd >= 0) {
         if (num_clients < MAX_CLIENTS) {
-            fcntl(client_fd, F_SETFL, O_NONBLOCK | O_ASYNC);
+            fcntl(client_fd, F_SETFL, O_NONBLOCK);
             fcntl(client_fd, F_SETOWN, getpid());
             ioctl(client_fd, I_SETSIG, S_INPUT);
             clients[num_clients++] = client_fd;
@@ -91,7 +91,7 @@ int main() {
     sa.sa_flags = SA_RESTART;
     sigaction(SIGPOLL, &sa, NULL);
     
-    fcntl(server_fd, F_SETFL, O_NONBLOCK | O_ASYNC);
+    fcntl(server_fd, F_SETFL, O_NONBLOCK);
     fcntl(server_fd, F_SETOWN, getpid());
     ioctl(server_fd, I_SETSIG, S_INPUT);
     
