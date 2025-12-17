@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#define SOCKET_PATH "/tmp/my_socket"
+#define SOCKET_PATH "./my_socket"
 
 int main(int argc, char *argv[]) {
     int sock_fd;
